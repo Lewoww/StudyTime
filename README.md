@@ -1,7 +1,7 @@
 
 ---
 
-# 📚 StudyRankBot
+# 📚 StudyTime
 
 Um bot para **Discord** que transforma o estudo em uma experiência **coletiva e divertida**!
 Com ele, você e seus amigos podem entrar juntos em call, registrar o tempo de estudo automaticamente e competir em um **ranking** para ver quem se dedica mais.
