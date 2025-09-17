@@ -1,13 +1,47 @@
 import discord
 from discord.ext import commands
 import time
-import asyncio
+import asyncio 
 import os
 from dotenv import load_dotenv
+import psycopg2
+from psycopg2.extras import RealDictCursor
 
 load_dotenv()
-TOKEN = os.getenv("DISCORD_TOKEN")
 
+TOKEN = os.getenv("DISCORD_TOKEN")
+DB_NAME = os.getenv("DB_NAME")
+DB_USER = os.getenv("DB_USER")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+DB_HOST = os.getenv("DB_HOST")
+DB_PORT = os.getenv("DB_PORT")
+
+def get_connection():
+    return psycopg2.connect(
+        dbname=DB_NAME,
+        user=DB_USER,
+        password=DB_PASSWORD,
+        host=DB_HOST,
+        port=DB_PORT
+    )
+
+async def update_study_time(member_id, guild_id, nome, tempo):
+    try:
+        conn = get_connection()
+    except psycopg2.OperationalError:
+        print("DB não disponível, dados não serão salvos")
+        return
+    
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO ranking (discord_id, guild_id, user_name, total_time)
+        VALUES (%s, %s, %s, %s)
+        ON CONFLICT (discord_id, guild_id) 
+        DO UPDATE SET total_time = ranking.total_time + EXCLUDED.total_time;
+    """, (member_id, guild_id, nome, tempo))
+    conn.commit()
+    cur.close()
+    conn.close()
 
 intents = discord.Intents.all()
 tempos_de_estudo = {}
@@ -31,39 +65,41 @@ def format_tempo(segundos_total):
 
     return " ".join(partes)
 
-@bot.command
-async def show_rank(ctx):
-    await ctx.send("O ranking de tempos:")
-
 @bot.event
 async def on_voice_state_update(member, before, after):
+    voice_channel = discord.utils.get(member.guild.voice_channels, name="studytime")
+    text_channel = discord.utils.get(member.guild.text_channels, name="studytime")
 
-    if before.channel is None and after.channel is not None:
+    if voice_channel is None or text_channel is None:
+        return
+    
+    guild_id = member.guild.id
+    
+    # Entrou no canal studytime
+    if after.channel == voice_channel and (before.channel != voice_channel):
         tempos_de_estudo[member.id] = time.time()
-        text_channel = discord.utils.get(member.guild.text_channels, name="geral")
+        await text_channel.send(f"{member.display_name} começou a estudar!")
 
-        if text_channel:
-            await text_channel.send(f"{member.display_name} começou a estudar!")
-
-    elif before.channel is not None and after.channel is None:
+    # Saiu do canal studytime
+    if before.channel == voice_channel and (after.channel != voice_channel):
         if member.id in tempos_de_estudo:
-            start = tempos_de_estudo.pop(member.id) 
+            start = tempos_de_estudo.pop(member.id)
             finish = time.time()
             total_study_time = int(finish - start)
-
             ranking[member.id] = ranking.get(member.id, 0) + total_study_time
 
-            text_channel = discord.utils.get(member.guild.text_channels, name="geral")
-
-        if text_channel:
             await text_channel.send(
                 f"⏳ {member.display_name} estudou por {format_tempo(total_study_time)}!"
             )
+            await update_study_time(member.id, guild_id ,member.display_name, total_study_time)
+
+
+
 
 @bot.command()
 async def points(ctx: commands.Context):
     user_id = ctx.author.id
-    total = ranking.get(user_id, 0)  # total em segundos
+    total = ranking.get(user_id, 0)
 
     segundos = total
     minutos = segundos // 60
@@ -116,28 +152,43 @@ async def points(ctx: commands.Context):
 
 @bot.command()
 async def leaderboard(ctx: commands.Context):
-    if not ranking:
-        await ctx.send("Ainda não há pontuações registradas.")
-        return
+    try:
+        conn = get_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
 
-    # Ordena o ranking do maior para o menor tempo
-    top5 = sorted(ranking.items(), key=lambda x: x[1], reverse=True)[:5]
+        # Busca top 5 ordenado por tempo
+        cur.execute("""
+            SELECT discord_id, total_time
+            FROM ranking
+            WHERE guild_id = %s
+            ORDER BY total_time DESC
+            LIMIT 5;
+        """, (ctx.guild.id,))
+        rows = cur.fetchall()
+        conn.close()
 
-    msg = "**🏆 Melhores Estudantes**\n"
+        if not rows:
+            await ctx.send("Ainda não há pontuações registradas.")
+            return
 
-    for i, (user_id, total) in enumerate(top5, start=1):
-        user = await bot.fetch_user(user_id)  # pega o objeto do usuário pelo ID
+        msg = "**🏆 Melhores Estudantes**\n"
 
-        # Converte segundos em horas, minutos e segundos
-        segundos = total
-        minutos = segundos // 60
-        segundos = segundos % 60
-        horas = minutos // 60
-        minutos = minutos % 60
+        for i, row in enumerate(rows, start=1):
+            user = await bot.fetch_user(row["discord_id"])
+            total = row["total_time"]
 
-        msg += f"{i}. {user.display_name} — {horas}h {minutos}m {segundos}s\n"
+            segundos = total
+            minutos = segundos // 60
+            segundos = segundos % 60
+            horas = minutos // 60
+            minutos = minutos % 60
 
-    await ctx.send(msg)
+            msg += f"{i}. {user.display_name} — {horas}h {minutos}m {segundos}s\n"
+
+        await ctx.send(msg)
+
+    except Exception as e:
+        await ctx.send(f"⚠️ Erro ao acessar o banco: {e}")
 
 @bot.command()
 async def addtime(ctx, member: discord.Member, segundos: int):
