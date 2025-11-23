@@ -1,7 +1,11 @@
+# -*- coding: utf-8 -*-
+import sys
+sys.stdout.reconfigure(encoding='utf-8')
+
 import discord
 from discord.ext import commands
 import time
-import asyncio 
+import asyncio
 import os
 from dotenv import load_dotenv
 import psycopg2
@@ -9,40 +13,32 @@ from psycopg2.extras import RealDictCursor
 
 load_dotenv()
 
-TOKEN = os.getenv("DISCORD_TOKEN")
-DB_NAME = os.getenv("DB_NAME")
-DB_USER = os.getenv("DB_USER")
-DB_PASSWORD = os.getenv("DB_PASSWORD")
-DB_HOST = os.getenv("DB_HOST")
-DB_PORT = os.getenv("DB_PORT")
+mode = os.getenv("MODE")
+
+if mode == "local":
+    load_dotenv(".env.local")
+else:
+    load_dotenv(".env.prod")
+    
+DATABASE_URL = os.getenv("DATABASE_URL")
+TOKEN = os.getenv("TOKEN")
 
 def get_connection():
-    return psycopg2.connect(
-        dbname=DB_NAME,
-        user=DB_USER,
-        password=DB_PASSWORD,
-        host=DB_HOST,
-        port=DB_PORT
-    )
+    return psycopg2.connect(DATABASE_URL, sslmode="require")
 
-async def update_study_time(member_id, guild_id, nome, tempo):
-    try:
-        conn = get_connection()
-    except psycopg2.OperationalError:
-        print("DB não disponível, dados não serão salvos")
-        return
-    
+
+# Teste inicial de conexão
+try:
+    conn = get_connection()
     cur = conn.cursor()
-    cur.execute("""
-        INSERT INTO ranking (discord_id, guild_id, user_name, total_time)
-        VALUES (%s, %s, %s, %s)
-        ON CONFLICT (discord_id, guild_id) 
-        DO UPDATE SET total_time = ranking.total_time + EXCLUDED.total_time;
-    """, (member_id, guild_id, nome, tempo))
-    conn.commit()
+    cur.execute("SELECT NOW();")
+    print("✅ Banco conectado com sucesso:", cur.fetchone())
     cur.close()
     conn.close()
+except Exception as e:
+    print(f"❌ Falha ao conectar: {e}")
 
+# Discord setup
 intents = discord.Intents.all()
 tempos_de_estudo = {}
 ranking = {}
@@ -65,6 +61,24 @@ def format_tempo(segundos_total):
 
     return " ".join(partes)
 
+# Atualizar tempo de estudo no banco
+async def update_study_time(member_id, guild_id, nome, tempo):
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO ranking (discord_id, guild_id, user_name, total_time)
+            VALUES (%s, %s, %s, %s)
+            ON CONFLICT (discord_id, guild_id) 
+            DO UPDATE SET total_time = ranking.total_time + EXCLUDED.total_time;
+        """, (member_id, guild_id, nome, tempo))
+        conn.commit()
+        cur.close()
+        conn.close()
+        print(f"✅ Tempo atualizado para {nome} ({tempo}s)")
+    except Exception as e:
+        print(f"⚠️ Erro ao atualizar tempo: {e}")
+
 @bot.event
 async def on_voice_state_update(member, before, after):
     voice_channel = discord.utils.get(member.guild.voice_channels, name="studytime")
@@ -72,28 +86,35 @@ async def on_voice_state_update(member, before, after):
 
     if voice_channel is None or text_channel is None:
         return
-    
+
     guild_id = member.guild.id
-    
+
     # Entrou no canal studytime
     if after.channel == voice_channel and (before.channel != voice_channel):
         tempos_de_estudo[member.id] = time.time()
-        await text_channel.send(f"{member.display_name} começou a estudar!")
+        await text_channel.send(f"{member.display_name} começou a estudar! 📚")
 
     # Saiu do canal studytime
     if before.channel == voice_channel and (after.channel != voice_channel):
+        total_study_time = 0
+
+        # Se o membro estava estudando (não pausado)
         if member.id in tempos_de_estudo:
             start = tempos_de_estudo.pop(member.id)
             finish = time.time()
-            total_study_time = int(finish - start)
-            ranking[member.id] = ranking.get(member.id, 0) + total_study_time
+            total_study_time += int(finish - start)
 
+        # Se o membro estava pausado (mas tinha tempo acumulado)
+        if member.id in tempos_pausados:
+            total_study_time += tempos_pausados.pop(member.id)
+
+        # Se houver tempo a registrar
+        if total_study_time > 0:
+            ranking[member.id] = ranking.get(member.id, 0) + total_study_time
             await text_channel.send(
                 f"⏳ {member.display_name} estudou por {format_tempo(total_study_time)}!"
             )
-            await update_study_time(member.id, guild_id ,member.display_name, total_study_time)
-
-
+            await update_study_time(member.id, guild_id, member.display_name, total_study_time)
 
 
 @bot.command()
@@ -104,50 +125,10 @@ async def points(ctx: commands.Context):
     segundos = total
     minutos = segundos // 60
     segundos = segundos % 60
-
     horas = minutos // 60
     minutos = minutos % 60
 
-    dias = horas // 24
-    horas = horas % 24
-
-    meses = dias // 30
-    dias = dias % 30
-
-    anos = meses // 12
-    meses = meses % 12
-
-    decadas = anos // 10
-    anos = anos % 10
-
-    seculos = decadas // 10
-    decadas = decadas % 10
-
-    milenios = seculos // 10
-    seculos = seculos % 10
-    msg = f"{ctx.author.display_name}, você estudou por "
-
-    partes = []
-    if milenios > 0:
-        partes.append(f"{milenios} milênios")
-    if seculos > 0:
-        partes.append(f"{seculos} séculos")
-    if decadas > 0:
-        partes.append(f"{decadas} décadas")
-    if anos > 0:
-        partes.append(f"{anos} anos")
-    if meses > 0:
-        partes.append(f"{meses} meses")
-    if dias > 0:
-        partes.append(f"{dias} dias")
-    if horas > 0:
-        partes.append(f"{horas} horas")
-    if minutos > 0:
-        partes.append(f"{minutos} minutos")
-    if segundos > 0 or not partes:
-        partes.append(f"{segundos} segundos")
-
-    msg += ", ".join(partes) + "!"
+    msg = f"{ctx.author.display_name}, você estudou por {horas}h {minutos}m {segundos}s!"
     await ctx.send(msg)
 
 @bot.command()
@@ -156,9 +137,8 @@ async def leaderboard(ctx: commands.Context):
         conn = get_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
 
-        # Busca top 5 ordenado por tempo
         cur.execute("""
-            SELECT discord_id, total_time
+            SELECT discord_id, user_name, total_time
             FROM ranking
             WHERE guild_id = %s
             ORDER BY total_time DESC
@@ -172,27 +152,51 @@ async def leaderboard(ctx: commands.Context):
             return
 
         msg = "**🏆 Melhores Estudantes**\n"
-
         for i, row in enumerate(rows, start=1):
-            user = await bot.fetch_user(row["discord_id"])
+            nome = row["user_name"]
             total = row["total_time"]
-
-            segundos = total
-            minutos = segundos // 60
-            segundos = segundos % 60
-            horas = minutos // 60
-            minutos = minutos % 60
-
-            msg += f"{i}. {user.display_name} — {horas}h {minutos}m {segundos}s\n"
+            horas = total // 3600
+            minutos = (total % 3600) // 60
+            segundos = total % 60
+            msg += f"{i}. {nome} — {horas}h {minutos}m {segundos}s\n"
 
         await ctx.send(msg)
 
     except Exception as e:
         await ctx.send(f"⚠️ Erro ao acessar o banco: {e}")
 
+tempos_de_estudo = {}
+tempos_pausados = {}
+
+
+@bot.command()
+async def pause(ctx):
+    member = ctx.author
+    if member.id in tempos_de_estudo:
+        start = tempos_de_estudo.pop(member.id)
+        elapsed = int(time.time() - start)
+        tempos_pausados[member.id] = tempos_pausados.get(member.id, 0) + elapsed
+        await ctx.send(f"⏸️ {member.display_name} pausou o estudo ({format_tempo(elapsed)} acumulado).")
+    else:
+        await ctx.send("⚠️ Você não está estudando agora.")
+
+@bot.command()
+async def continuar(ctx):
+    member = ctx.author
+
+    if member.id not in tempos_pausados:
+        await ctx.send("⚠️ Você não tem uma sessão pausada para continuar.")
+        return
+
+    if member.id in tempos_de_estudo:
+        await ctx.send("⚠️ Você já está estudando no momento.")
+        return
+
+    tempos_de_estudo[member.id] = time.time()
+    await ctx.send(f"▶️ {member.display_name} retomou o estudo!")
+
 @bot.command()
 async def addtime(ctx, member: discord.Member, segundos: int):
-    # adiciona segundos ao ranking
     ranking[member.id] = ranking.get(member.id, 0) + segundos
     await ctx.send(f"✅ {segundos} segundos adicionados a {member.display_name}. Total agora: {ranking[member.id]} s")
 
