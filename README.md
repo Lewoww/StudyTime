@@ -14,7 +14,7 @@ Com ele, você e seus amigos podem entrar juntos em call, registrar o tempo de e
 
 ## 🔗 Como adicionar ao seu servidor
 
-1. **Convide o bot:** [Clique aqui para adicionar o StudyTime ao seu servidor] *(Nota: Insira o link de convite do OAuth2 gerado no Discord Developer Portal aqui)*.
+1. **Convide o bot:** [Clique aqui para adicionar o StudyTime ao seu servidor] *((https://discord.com/oauth2/authorize?client_id=1416279340743921674&permissions=84992&integration_type=0&scope=bot))*.
 2. **Configuração Obrigatória:** Para que o bot funcione corretamente, você **precisa** criar dois canais no seu servidor com o exato nome `studytime` (tudo minúsculo):
    * 🔊 Um canal de **Voz** chamado `studytime` (onde o tempo será contado).
    * 💬 Um canal de **Texto** chamado `studytime` (onde o bot enviará os avisos e lerá os comandos).
