@@ -1,3 +1,4 @@
+from keep_alive import keep_alive
 # -*- coding: utf-8 -*-
 import sys
 sys.stdout.reconfigure(encoding='utf-8')
@@ -267,5 +268,7 @@ async def run_pomodoro(ctx, estudo, descanso):
     finally:
         pomodoro_tasks.pop(guild_id, None)
 
+# Inicia o servidor web em segundo plano
+keep_alive()
 
 bot.run(TOKEN)
