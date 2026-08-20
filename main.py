@@ -251,7 +251,7 @@ async def run_pomodoro(ctx, estudo, descanso):
             embed.add_field(name="Estudo", value=f"{estudo} minutos", inline=True)
             await ctx.send(embed=embed)
 
-            await asyncio.sleep(estudo*1)
+            await asyncio.sleep(estudo*60)
             await ctx.send(f"Parabéns, a rodada {pomodoros_round} acabou! Descanse por {descanso} minutos!")
             embed2 = Embed(
                 title=f"Descanse!",
@@ -260,7 +260,7 @@ async def run_pomodoro(ctx, estudo, descanso):
             )
             embed2.add_field(name="Descanso", value=f"{descanso} minutos", inline=True)
             await ctx.send(embed=embed2)
-            await asyncio.sleep(descanso*1)
+            await asyncio.sleep(descanso*60)
             await ctx.send("Intervalo acabou! Vamos voltar aos estudos!")
             
             pomodoros_round = pomodoros_round + 1

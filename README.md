@@ -1,73 +1,36 @@
+# 📚 StudyTime
+
+Um bot para **Discord** que transforma o estudo em uma experiência **coletiva e divertida**! 
+Com ele, você e seus amigos podem entrar juntos em call, registrar o tempo de estudo automaticamente e competir em um **ranking** para ver quem se dedica mais.
+
+## 🚀 O que o bot faz?
+
+* ⏱️ **Rastreamento Automático:** Conta o tempo de estudo de cada usuário assim que entram no canal de voz de estudos.
+* 🏆 **Gamificação:** Cria um ranking (Leaderboard) com os membros que mais estudaram no servidor.
+* 🎯 **Foco e Saúde:** Sistema de **Pomodoro** integrado e comandos para pausar o tempo e beber água.
+* 🔔 **Notificações:** Avisa no chat de texto quando alguém começa a estudar, termina ou entra em pausa.
 
 ---
 
-# 📚 StudyTime
+## 🔗 Como adicionar ao seu servidor
 
-Um bot para **Discord** que transforma o estudo em uma experiência **coletiva e divertida**!
-Com ele, você e seus amigos podem entrar juntos em call, registrar o tempo de estudo automaticamente e competir em um **ranking** para ver quem se dedica mais.
+1. **Convide o bot:** [Clique aqui para adicionar o StudyTime ao seu servidor] *(Nota: Insira o link de convite do OAuth2 gerado no Discord Developer Portal aqui)*.
+2. **Configuração Obrigatória:** Para que o bot funcione corretamente, você **precisa** criar dois canais no seu servidor com o exato nome `studytime` (tudo minúsculo):
+   * 🔊 Um canal de **Voz** chamado `studytime` (onde o tempo será contado).
+   * 💬 Um canal de **Texto** chamado `studytime` (onde o bot enviará os avisos e lerá os comandos).
 
-## 🚀 Funcionalidades
+---
 
-* ⏱️ Conta automaticamente o tempo de estudo de cada usuário quando entram/saiem da call.
-* 🏆 Cria um **ranking** com os membros que mais estudaram.
-* 📊 Comando `!points` para ver quanto tempo você acumulou.
-* 🎯 Sistema de **Pomodoro** para organizar seus ciclos de estudo e descanso.
-* 🔔 Notificações no chat quando alguém começa ou termina de estudar.
+## 🛠️ Lista de Comandos
 
-## 📷 Exemplo de uso
+O prefixo do bot é `.` (ponto). Digite os comandos no canal de texto `studytime`:
 
-* Entre em um canal de voz e seu tempo começará a ser contabilizado.
-* Ao sair, o bot enviará uma mensagem mostrando quanto tempo você estudou.
-* Use `!points` para ver seu progresso pessoal.
-* Use `!leaderboard` para ver o ranking dos 5 melhores estudantes.
-
-## 🛠️ Como rodar localmente
-
-### Pré-requisitos
-
-* Python 3.9+
-* Dependências listadas em `requirements.txt`
-* Uma conta e aplicação registrada no [Discord Developer Portal](https://discord.com/developers/applications)
-
-### Passo a passo
-
-1. Clone o repositório:
-
-   ```bash
-   git clone https://github.com/seu-usuario/studyrankbot.git
-   cd studyrankbot
-   ```
-2. Instale as dependências:
-
-   ```bash
-   pip install -r requirements.txt
-   ```
-3. Crie um arquivo `.env` na raiz do projeto:
-
-   ```
-   DISCORD_TOKEN=seu_token_aqui
-   ```
-4. Rode o bot:
-
-   ```bash
-   python main.py
-   ```
-
-## 📦 Estrutura do projeto
-
-```
-studyrankbot/
-│── main.py          # Código principal do bot
-│── requirements.txt # Dependências do projeto
-│── .env.example     # Exemplo das variáveis de ambiente
-│── .gitignore       # Arquivos ignorados pelo git
-│── README.md        # Documentação do projeto
-```
-
-## 🔒 Segurança
-
-* **Nunca exponha seu token** diretamente no código.
-* O arquivo `.env` deve ser protegido e está listado no `.gitignore`.
+* `.comandos` — Exibe a lista de todos os comandos disponíveis.
+* `.leaderboard` — Mostra o painel com o Top 5 estudantes do servidor.
+* `.points` — Exibe o seu tempo total acumulado de estudos.
+* `.pause` — Pausa o seu cronômetro de estudos. Ideal para ir ao banheiro ou beber água sem sair da call.
+* `.continuar` — Retoma a contagem do tempo de onde você parou.
+* `.pomodoro [estudo] [descanso]` — Inicia um ciclo de Pomodoro para a sala. *(Ex: `.pomodoro 25 5` inicia 25 minutos de foco e 5 de descanso)*.
 
 ## 🤝 Contribuições
 
