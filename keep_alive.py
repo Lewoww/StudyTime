@@ -1,15 +1,28 @@
-from flask import Flask
 from threading import Thread
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import os
 
-app = Flask('')
 
-@app.route('/')
-def home():
-    return "Bot está online"
+class HealthHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        if self.path == '/':
+            body = b"Bot est online e rodando 24/7!"
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/plain; charset=utf-8')
+            self.send_header('Content-Length', str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+        else:
+            self.send_error(404)
+
+    def log_message(self, format, *args):
+        pass
 
 def run():
-    # O Render usa a porta 10000 por padrão, mas mapeia o 0.0.0.0 automaticamente
-    app.run(host='0.0.0.0', port=8080)
+    # Pega a porta que o Render quer, ou usa 8080 como fallback local.
+    port = int(os.environ.get('PORT', 8080))
+    server = ThreadingHTTPServer(('0.0.0.0', port), HealthHandler)
+    server.serve_forever()
 
 def keep_alive():
     t = Thread(target=run)
